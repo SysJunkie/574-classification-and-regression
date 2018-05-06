@@ -1,6 +1,10 @@
 import numpy as np
 from scipy.io import loadmat
 from scipy.optimize import minimize
+from math import sqrt
+from sklearn.svm import SVC
+# from pylab import *
+import pickle
 
 
 def preprocess():
@@ -113,6 +117,22 @@ def blrObjFunction(initialWeights, *args):
     ##################
     # YOUR CODE HERE #
     ##################
+
+    w = initialWeights
+    w = w.reshape((n_feature+1, 1))
+
+    bias = np.ones((n_data, 1))
+    x = np.append(bias, train_data, axis=1)
+
+    theta = sigmoid(x.dot(w))
+
+    error = labeli * np.log(theta) + (1 - labeli) * np.log(1 - theta)
+    # error = error/n_data
+    error = - np.sum(error)
+
+    error_grad = (theta - labeli)*x
+    error_grad = np.sum(error_grad, axis=0)
+    # print(error_grad.shape)
     # HINT: Do not forget to add the bias term to your input data
 
     return error, error_grad
@@ -140,10 +160,18 @@ def blrPredict(W, data):
     ##################
     # HINT: Do not forget to add the bias term to your input data
 
+    bias = np.ones((data.shape[0], 1))
+    x = np.append(bias, train_data, axis=1)
+
+    label = sigmoid(x.dot(W))  # compute probabilities
+    label = np.argmax(label, axis=1)  # get maximum for each class
+    label = label.reshape((data.shape[0], 1))
+
+
     return label
 
 
-def mlrObjFunction(params, *args):
+def mlrObjFunction(initialWeights, *args):
     """
     mlrObjFunction computes multi-class Logistic Regression error function and
     its gradient.
@@ -163,11 +191,28 @@ def mlrObjFunction(params, *args):
     n_feature = train_data.shape[1]
     error = 0
     error_grad = np.zeros((n_feature + 1, n_class))
+    error_grad.flatten()
 
     ##################
     # YOUR CODE HERE #
     ##################
     # HINT: Do not forget to add the bias term to your input data
+
+    w = initialWeights
+    w = w.reshape((n_feature+1, 1))
+
+    bias = np.ones((n_data, 1))
+    x = np.append(bias, train_data, axis=1)
+
+    denominator = np.sum(np.exp(x.dot(w)), axis=1)
+    denominator = denominator.reshape(n_data, 1)
+
+    posterior = (np.exp(x.dot(w)) / denominator)
+
+    log_theta = np.log(posterior)
+
+    error = (-1) * np.sum(np.sum(labeli * log_theta))
+    error_grad = (np.dot(train_data.T, posterior - labeli))
 
     return error, error_grad
 
@@ -188,11 +233,22 @@ def mlrPredict(W, data):
 
     """
     label = np.zeros((data.shape[0], 1))
-
+    n_data = data.shape[0]
     ##################
     # YOUR CODE HERE #
     ##################
     # HINT: Do not forget to add the bias term to your input data
+
+    bias = np.ones((n_data, 1))
+    x = np.append(bias, train_data, axis=1)
+
+    denominator = np.sum(np.exp(x.dot(W)))
+
+    posterior = (np.exp(x.dot(W)) / denominator)
+
+    for i in range(posterior.shape[0]):
+        label[i] = np.argmax(posterior[i])
+    label = label.reshape(label.shape[0], 1)
 
     return label
 
@@ -220,10 +276,14 @@ W = np.zeros((n_feature + 1, n_class))
 initialWeights = np.zeros((n_feature + 1, 1))
 opts = {'maxiter': 100}
 for i in range(n_class):
+    print(i)
     labeli = Y[:, i].reshape(n_train, 1)
     args = (train_data, labeli)
     nn_params = minimize(blrObjFunction, initialWeights, jac=True, args=args, method='CG', options=opts)
+    # print(i)
     W[:, i] = nn_params.x.reshape((n_feature + 1,))
+
+print("done training")
 
 # Find the accuracy on Training Dataset
 predicted_label = blrPredict(W, train_data)
@@ -245,6 +305,34 @@ print('\n\n--------------SVM-------------------\n\n')
 ##################
 # YOUR CODE HERE #
 ##################
+
+# Linear Kernel
+print('SVM with linear kernel')
+clf = SVC(kernel='linear')
+clf.fit(train_data, train_label.flatten())
+print('\n Training set Accuracy:' + str(100*clf.score(train_data, train_label)) + '%')
+print('\n Validation set Accuracy:' + str(100*clf.score(validation_data, validation_label)) + '%')
+print('\n Testing set Accuracy:' + str(100*clf.score(test_data, test_label)) + '%')
+
+# Radial basis function with gamma = 0
+
+print('\n\n SVM with radial basis function, gamma = 0')
+clf = SVC(kernel='rbf')
+clf.fit(train_data, train_label.flatten())
+print('\n Training set Accuracy:' + str(100*clf.score(train_data, train_label)) + '%')
+print('\n Validation set Accuracy:' + str(100*clf.score(validation_data, validation_label)) + '%')
+print('\n Testing set Accuracy:' + str(100*clf.score(test_data, test_label)) + '%')
+
+# Radial basis function with gamma = 1
+
+print('\n\n SVM with radial basis function, gamma = 1')
+clf = SVC(kernel='rbf', gamma=1.0)
+clf.fit(train_data, train_label.flatten())
+print('\n Training set Accuracy:' + str(100*clf.score(train_data, train_label)) + '%')
+print('\n Validation set Accuracy:' + str(100*clf.score(validation_data, validation_label)) + '%')
+print('\n Testing set Accuracy:' + str(100*clf.score(test_data, test_label)) + '%')
+
+# Radial basis function with C = 1, 10, 20 ... 100
 
 
 """
