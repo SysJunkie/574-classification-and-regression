@@ -1,10 +1,9 @@
 import numpy as np
 from scipy.io import loadmat
 from scipy.optimize import minimize
-from math import sqrt
+import matplotlib.pyplot as plt
 from sklearn.svm import SVC
-# from pylab import *
-import pickle
+
 
 
 def preprocess():
@@ -111,7 +110,7 @@ def blrObjFunction(initialWeights, *args):
 
     n_data = train_data.shape[0]
     n_features = train_data.shape[1]
-    error = 0
+    # error = 1
     error_grad = np.zeros((n_features + 1, 1))
 
     ##################
@@ -126,7 +125,7 @@ def blrObjFunction(initialWeights, *args):
 
     theta = sigmoid(x.dot(w))
 
-    error = labeli * np.log(theta) + (1 - labeli) * np.log(1 - theta)
+    error = labeli * np.log(theta) + (1.0 - labeli) * np.log(1.0 - theta)
     # error = error/n_data
     error = - np.sum(error)
 
@@ -134,7 +133,6 @@ def blrObjFunction(initialWeights, *args):
     error_grad = np.sum(error_grad, axis=0)
     # print(error_grad.shape)
     # HINT: Do not forget to add the bias term to your input data
-
     return error, error_grad
 
 
@@ -154,14 +152,14 @@ def blrPredict(W, data):
 
     """
     label = np.zeros((data.shape[0], 1))
-
+    # print(data.shape)
     ##################
     # YOUR CODE HERE #
     ##################
     # HINT: Do not forget to add the bias term to your input data
 
     bias = np.ones((data.shape[0], 1))
-    x = np.append(bias, train_data, axis=1)
+    x = np.append(bias, data, axis=1)
 
     label = sigmoid(x.dot(W))  # compute probabilities
     label = np.argmax(label, axis=1)  # get maximum for each class
@@ -187,6 +185,7 @@ def mlrObjFunction(initialWeights, *args):
         error_grad: the vector of size (D+1) x 10 representing the gradient of
                     error function
     """
+    train_data, labeli = args
     n_data = train_data.shape[0]
     n_feature = train_data.shape[1]
     error = 0
@@ -199,11 +198,11 @@ def mlrObjFunction(initialWeights, *args):
     # HINT: Do not forget to add the bias term to your input data
 
     w = initialWeights
-    w = w.reshape((n_feature+1, 1))
+    w = w.reshape((n_feature+1, n_class))
 
     bias = np.ones((n_data, 1))
     x = np.append(bias, train_data, axis=1)
-
+    # print(x.shape)
     denominator = np.sum(np.exp(x.dot(w)), axis=1)
     denominator = denominator.reshape(n_data, 1)
 
@@ -212,9 +211,9 @@ def mlrObjFunction(initialWeights, *args):
     log_theta = np.log(posterior)
 
     error = (-1) * np.sum(np.sum(labeli * log_theta))
-    error_grad = (np.dot(train_data.T, posterior - labeli))
-
-    return error, error_grad
+    error_grad = (np.dot(x.T, posterior - labeli))
+    # print(error_grad.shape)
+    return error, error_grad.flatten()
 
 
 def mlrPredict(W, data):
@@ -240,7 +239,7 @@ def mlrPredict(W, data):
     # HINT: Do not forget to add the bias term to your input data
 
     bias = np.ones((n_data, 1))
-    x = np.append(bias, train_data, axis=1)
+    x = np.append(bias, data, axis=1)
 
     denominator = np.sum(np.exp(x.dot(W)))
 
@@ -280,23 +279,25 @@ for i in range(n_class):
     labeli = Y[:, i].reshape(n_train, 1)
     args = (train_data, labeli)
     nn_params = minimize(blrObjFunction, initialWeights, jac=True, args=args, method='CG', options=opts)
-    # print(i)
     W[:, i] = nn_params.x.reshape((n_feature + 1,))
 
-print("done training")
+print("Done training")
 
 # Find the accuracy on Training Dataset
 predicted_label = blrPredict(W, train_data)
 print('\n Training set Accuracy:' + str(100 * np.mean((predicted_label == train_label).astype(float))) + '%')
-
+# cm = confusion_matrix(train_label, predicted_label)
+# print(cm)
 # Find the accuracy on Validation Dataset
 predicted_label = blrPredict(W, validation_data)
 print('\n Validation set Accuracy:' + str(100 * np.mean((predicted_label == validation_label).astype(float))) + '%')
-
+# cm = confusion_matrix(validation_label, predicted_label)
+# print(cm)
 # Find the accuracy on Testing Dataset
 predicted_label = blrPredict(W, test_data)
 print('\n Testing set Accuracy:' + str(100 * np.mean((predicted_label == test_label).astype(float))) + '%')
-
+# cm = confusion_matrix(test_label, predicted_label)
+# print(cm)
 """
 Script for Support Vector Machine
 """
@@ -306,34 +307,81 @@ print('\n\n--------------SVM-------------------\n\n')
 # YOUR CODE HERE #
 ##################
 
+# Selecting random 10000 points
+random_points = np.random.choice(50000, 10000)
+train_data = train_data[random_points]
+train_label = train_label[random_points]
+
+# Selecting random 2000 points
+random_points = np.random.choice(10000, 2000)
+validation_data = validation_data[random_points]
+validation_label = validation_label[random_points]
+test_data = test_data[random_points]
+test_label = test_label[random_points]
+
 # Linear Kernel
-print('SVM with linear kernel')
+print('#----------------------Using linear kernel----------------------#')
 clf = SVC(kernel='linear')
+print('\n Fitting...')
 clf.fit(train_data, train_label.flatten())
-print('\n Training set Accuracy:' + str(100*clf.score(train_data, train_label)) + '%')
-print('\n Validation set Accuracy:' + str(100*clf.score(validation_data, validation_label)) + '%')
-print('\n Testing set Accuracy:' + str(100*clf.score(test_data, test_label)) + '%')
+print('\n Fitting for Linear Kernel Completed')
+print('\n Training set Accuracy:', clf.score(train_data, train_label))
+print('\n Validation set Accuracy:', clf.score(validation_data, validation_label))
+print('\n Testing set Accuracy:', clf.score(test_data, test_label))
 
 # Radial basis function with gamma = 0
 
-print('\n\n SVM with radial basis function, gamma = 0')
+print('\n\n #----------------------Using radial basis function with default gamma----------------------#')
 clf = SVC(kernel='rbf')
+print('\n Fitting...')
 clf.fit(train_data, train_label.flatten())
-print('\n Training set Accuracy:' + str(100*clf.score(train_data, train_label)) + '%')
-print('\n Validation set Accuracy:' + str(100*clf.score(validation_data, validation_label)) + '%')
-print('\n Testing set Accuracy:' + str(100*clf.score(test_data, test_label)) + '%')
+print('\n Fitting for rbf with default gamma Completed')
+print('\n Training set Accuracy:', clf.score(train_data, train_label))
+print('\n Validation set Accuracy:', clf.score(validation_data, validation_label))
+print('\n Testing set Accuracy:', clf.score(test_data, test_label))
 
 # Radial basis function with gamma = 1
 
-print('\n\n SVM with radial basis function, gamma = 1')
+print('\n\n #----------------------Using radial basis function with gamma = 1----------------------#')
 clf = SVC(kernel='rbf', gamma=1.0)
+print('\n Fitting...')
 clf.fit(train_data, train_label.flatten())
-print('\n Training set Accuracy:' + str(100*clf.score(train_data, train_label)) + '%')
-print('\n Validation set Accuracy:' + str(100*clf.score(validation_data, validation_label)) + '%')
-print('\n Testing set Accuracy:' + str(100*clf.score(test_data, test_label)) + '%')
+print('\n Fitting for rbf with gamma = 1 Completed')
+print('\n Training set Accuracy:', clf.score(train_data, train_label))
+print('\n Validation set Accuracy:', clf.score(validation_data, validation_label))
+print('\n Testing set Accuracy:', clf.score(test_data, test_label))
 
 # Radial basis function with C = 1, 10, 20 ... 100
 
+print('\n\n #----------------------Using radial basis function with different values of C----------------------#')
+
+c_values = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+train_accuracy = np.zeros(len(c_values))
+valid_accuracy = np.zeros(len(c_values))
+test_accuracy = np.zeros(len(c_values))
+
+
+for i in range(len(c_values)):
+    print("\n Fitting for", c_values[i])
+    clf = SVC(C=c_values[i],kernel='rbf')
+    clf.fit(train_data, train_label.flatten())
+    train_accuracy[i] = 100*clf.score(train_data, train_label)
+    print("\n When C =", c_values[i], "Training set Accuracy: ", train_accuracy[i])
+    valid_accuracy[i] = 100*clf.score(validation_data, validation_label)
+    print("\n When C =", c_values[i], "Validation set Accuracy: ", valid_accuracy[i])
+    test_accuracy[i] = 100*clf.score(test_data, test_label)
+    print("\n When C =", c_values[i], "Test set Accuracy: ", test_accuracy[i])
+
+accuracyMatrix = np.column_stack((train_accuracy, valid_accuracy, test_accuracy))
+
+fig = plt.figure(figsize=[12, 6])
+plt.subplot(1, 2, 1)
+plt.plot(c_values, accuracyMatrix)
+plt.title('Accuracy with different C')
+plt.legend(('Training data', 'Validation data', 'Testing data'), loc='best')
+plt.xlabel('Values of C')
+plt.ylabel('Accuracy in %')
+plt.show()
 
 """
 Script for Extra Credit Part
@@ -350,11 +398,17 @@ W_b = nn_params.x.reshape((n_feature + 1, n_class))
 # Find the accuracy on Training Dataset
 predicted_label_b = mlrPredict(W_b, train_data)
 print('\n Training set Accuracy:' + str(100 * np.mean((predicted_label_b == train_label).astype(float))) + '%')
+# cm = confusion_matrix(train_label, predicted_label_b)
+# print(cm)
 
 # Find the accuracy on Validation Dataset
 predicted_label_b = mlrPredict(W_b, validation_data)
 print('\n Validation set Accuracy:' + str(100 * np.mean((predicted_label_b == validation_label).astype(float))) + '%')
+# cm = confusion_matrix(validation_label, predicted_label_b)
+# print(cm)
 
 # Find the accuracy on Testing Dataset
 predicted_label_b = mlrPredict(W_b, test_data)
 print('\n Testing set Accuracy:' + str(100 * np.mean((predicted_label_b == test_label).astype(float))) + '%')
+# cm = confusion_matrix(test_label, predicted_label_b)
+# print(cm)
